@@ -53,9 +53,6 @@ PUB Main | time_ms, r
     Setup
     display.ClearAll
 
-'    display.MirrorH(FALSE)
-'    display.MirrorV(FALSE)
-
     Demo_Greet
     time.Sleep (5)
     display.ClearAll
@@ -88,9 +85,6 @@ PUB Main | time_ms, r
     Demo_Plot (time_ms)
     display.ClearAll
 
-'    Demo_PlotAccel (time_ms)
-'    display.ClearAll
-
     Demo_BouncingBall (time_ms, 5)
     display.ClearAll
 
@@ -105,7 +99,6 @@ PUB Main | time_ms, r
 
     Demo_RndText (time_ms)
 
-'    Demo_Contrast(2, 1)
     display.ClearAll
 
     Stop
@@ -300,21 +293,6 @@ PUB Demo_Plot(testtime) | iteration, x, y, c
     Report(testtime, iteration)
     return iteration
 
-{PUB Demo_PlotAccel(testtime) | iteration, x, y, c
-' Draws random pixels (accelerated/native) to the screen, with color -1 (invert)
-    ser.str(string("Demo_PlotAccel - "))
-    _timer_set := testtime
-    iteration := 0
-
-    repeat while _timer_set
-        c := (?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26)
-        display.PlotAccel (rnd(XMAX), rnd(YMAX), c)
-        iteration++
-
-    display.DisplayBounds(0, 0, XMAX, YMAX)
-    Report(testtime, iteration)
-    return iteration
-}
 PUB Demo_Sinewave(testtime) | iteration, x, y, modifier, offset, div
 ' Draws a sine wave the length of the screen, influenced by the system counter
     ser.str(string("Demo_Sinewave - "))
@@ -524,8 +502,6 @@ PUB Setup
         ser.str(string("VGA Bitmap driver started", ser#CR, ser#LF))
         display.FontAddress(fnt.BaseAddr)
         display.FontSize(6, 8)
-'        display.DefaultsCommon
-'        display.ClearAll
     else
         ser.str(string("VGA Bitmap driver failed to start - halting", ser#CR, ser#LF))
         Stop
@@ -534,7 +510,6 @@ PUB Setup
 
 PUB Stop
 
-'    display.Powered (FALSE)
     display.Stop
     cogstop(_timer_cog)
 

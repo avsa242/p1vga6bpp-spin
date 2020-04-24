@@ -33,77 +33,12 @@ CON
   #$CC, Light_Purple, #$88, Purple, #$44, Dark_Purple
   #$3C, Light_Teal, #$28, Teal, #$14, Dark_Teal
   #$FF, White, #$00, Black
-{
-PUB plotBox(color, xPixelStart, yPixelStart, xPixelEnd, yPixelEnd) '' 8 Stack Longs
-
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-'' // Plots a one color box of pixels on screen.
-'' //
-'' // Color - The color of the box of pixels to display on screen. A color byte (%RR_GG_BB_xx).
-'' // XPixelStart - The X cartesian pixel start coordinate. X between 0 and 159. Y between 0 and 119.
-'' // YPixelStart - The Y cartesian pixel start coordinate. Note that this axis is inverted like on all other graphics drivers.
-'' // XPixelEnd - The X cartesian pixel end coordinate. X between 0 and 159. Y between 0 and 119.
-'' // YPixelEnd - The Y cartesian pixel end coordinate. Note that this axis is inverted like on all other graphics drivers.
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  xPixelEnd := ((xPixelEnd <# 159) #> 0)
-  yPixelEnd := (((yPixelEnd <# 119) #> 0) * 160)
-  xPixelStart := ((xPixelStart <# xPixelEnd) #> 0)
-  yPixelStart := (((yPixelStart * 160) <# yPixelEnd) #> 0)
-
-  yPixelEnd += xPixelStart
-  yPixelStart += xPixelStart
-  xPixelEnd -= --xPixelStart
-
-  repeat result from yPixelStart to yPixelEnd step 160
-    bytefill(@displayBuffer + result, (color | $3), xPixelEnd)
-}
-PUB ClearAccel '' 3 Stack Longs
-
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-'' // Clears the screen to black.
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  longfill(_ptr_drawbuffer, 0, constant((160 * 120) / 4))
-
-PUB displayState(state) '' 4 Stack Longs
-
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-'' // Enables or disables the PIX Driver's video output - turning the monitor off or putting it into standby mode.
-'' //
-'' // State - True for active and false for inactive.
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  displayIndicator := state
-
-PUB displayRate(rate) '' 4 Stack Longs
-
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-'' // Returns true or false depending on the time elasped according to a specified rate.
-'' //
-'' // Rate - A display rate to return at. 0=0.234375Hz, 1=0.46875Hz, 2=0.9375Hz, 3=1.875Hz, 4=3.75Hz, 5=7.5Hz, 6=15Hz, 7=30Hz.
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  result or= (($80 >> ((rate <# 7) #> 0)) & syncIndicator)
-
-PUB displayWait(frames) '' 4 Stack Longs
-
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-'' // Waits for the display vertical refresh.
-'' //
-'' // The best time to draw on screen for flicker free operation is right after this function returns.
-'' //
-'' // Frames - Number of vertical refresh frames to wait for.
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  repeat (frames #> 0)
-    result := syncIndicator
-    repeat until(result <> syncIndicator)
 
 VAR
 
     long _ptr_drawbuffer
     word _disp_width, _disp_height, _disp_xmax, _disp_ymax, _buff_sz
+    byte _cog
 
 PUB Start(pinGroup, WIDTH, HEIGHT, drawbuffer_address) '' 7 Stack Longs
 
@@ -115,34 +50,40 @@ PUB Start(pinGroup, WIDTH, HEIGHT, drawbuffer_address) '' 7 Stack Longs
 '' // PinGroup - Pin group to use to drive the video circuit. Between 0 and 3.
 '' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  Stop
-  if(chipver == 1)
+    Stop'1
+    if(chipver == 1)
 
-    _disp_width := WIDTH
-    _disp_height := HEIGHT
-    _disp_xmax := _disp_width - 1
-    _disp_ymax := _disp_height - 1
-    _buff_sz := _disp_width * _disp_height
+        _disp_width := WIDTH'2
+        _disp_height := HEIGHT
+        _disp_xmax := _disp_width - 1
+        _disp_ymax := _disp_height - 1
+        _buff_sz := _disp_width * _disp_height
 
-    Address(drawbuffer_address)
+        Address(drawbuffer_address)
 
-    pinGroup := ((pinGroup <# 3) #> 0)
-    directionState := ($FF << (8 * pinGroup))
-    videoState := ($30_00_00_FF | (pinGroup << 9))
+        pinGroup := ((pinGroup <# 3) #> 0)
+        directionState := ($FF << (8 * pinGroup))
+        videoState := ($30_00_00_FF | (pinGroup << 9))
 
-    pinGroup := constant((25_175_000 + 1_600) / 4)
-    frequencyState := 1
-    repeat 32
-      pinGroup <<= 1
-      frequencyState <-= 1
-      if(pinGroup => clkfreq)
-        pinGroup -= clkfreq
-        frequencyState += 1
+        pinGroup := constant((25_175_000 + 1_600) / 4)
+        frequencyState := 1
+        repeat 32
+            pinGroup <<= 1'3
+            frequencyState <-= 1
+            if(pinGroup => clkfreq)
+                pinGroup -= clkfreq'4
+                frequencyState += 1
 
-    displayIndicatorAddress := @displayIndicator
-    syncIndicatorAddress := @syncIndicator
-    cogNumber := cognew(@initialization, _ptr_drawbuffer)
-    result or= ++cogNumber
+        displayIndicatorAddress := @displayIndicator'2
+        syncIndicatorAddress := @syncIndicator
+        _cog := cognew(@initialization, _ptr_drawbuffer)+1
+        return _cog
+
+PUB Stop
+
+    if(_cog)
+        cogstop(_cog-1)
+        _cog := 0
 
 PUB Address(addr)
 ' Set address of display buffer
@@ -150,23 +91,32 @@ PUB Address(addr)
 '       display.Address(@_framebuffer)
     _ptr_drawbuffer := addr
 
-PUB Stop '' 3 Stack Longs
+PUB ClearAccel
+' Clear screen to black
+    longfill(_ptr_drawbuffer, 0, constant((160 * 120) / 4))
 
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-'' // Shuts down the PIX driver running on a cog.
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+PUB DisplayState(state) '' 4 Stack Longs
+' Enable video output
+'   Valid values: TRUE (-1), FALSE (0)
 
-  if(cogNumber)
-    cogstop(-1 + cogNumber~)
+    displayIndicator := state
+
+PUB DisplayRate(rate)
+' Returns true or false depending on the time elasped according to a specified rate.
+'   Rate - A display rate to return at. 0=0.234375Hz, 1=0.46875Hz, 2=0.9375Hz, 3=1.875Hz, 4=3.75Hz, 5=7.5Hz, 6=15Hz, 7=30Hz.
+    result or= (($80 >> ((rate <# 7) #> 0)) & syncIndicator)
+
+PUB WaitVSYNC(frames)
+' Waits for the display vertical refresh.
+'   Frames - Number of vertical refresh frames to wait for.
+    repeat (frames #> 0)
+        result := syncIndicator
+        repeat until(result <> syncIndicator)
 
 PUB Update
-
+' dummy method
 
 DAT
-
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-'                       PIX Driver
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
                         org     0
 
@@ -304,31 +254,29 @@ displayCounter          res     1
 
 DAT
 
-' //////////////////////Variable Arrary////////////////////////////////////////////////////////////////////////////////////////
 
-'displayBuffer           long    0[(160 * 120) / 4]                         ' Display buffer.
 displayIndicator        byte    1                                          ' Video output control.
 syncIndicator           byte    0                                          ' Video update control.
 cogNumber               byte    0                                          ' Cog ID.
 
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+{
+    --------------------------------------------------------------------------------------------------------
+    TERMS OF USE: MIT License
 
-{{
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+    associated documentation files (the "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the
+    following conditions:
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                                  TERMS OF USE: MIT License
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation
-// files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy,
-// modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
-// Software is furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
-// Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
-// WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-// COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-// ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-}}
+    The above copyright notice and this permission notice shall be included in all copies or substantial
+    portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+    LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    --------------------------------------------------------------------------------------------------------
+}
+
