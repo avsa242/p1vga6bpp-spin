@@ -381,16 +381,15 @@ PUB Demo_TriWave(testtime) | iteration, x, y, ydir
     iteration := 0
 
     repeat while _timer_set
+        display.Clear
         display.WaitVSync
         repeat x from 0 to XMAX
-            if y == YMAX
-                ydir := -1
-            if y == 0
-                ydir := 1
-            y := y + ydir
+            y := y+ydir
+
+            if y => YMAX or y =< 0
+                ydir *= -1
             display.Plot (x, y, display#MAX_COLOR)
         iteration++
-        display.Clear
 
     Report(testtime, iteration)
     return iteration
