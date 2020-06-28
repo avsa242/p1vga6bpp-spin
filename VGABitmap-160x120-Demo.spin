@@ -21,7 +21,7 @@ CON
     SER_TX      = 30
     SER_BAUD    = 115_200
 
-    PINGROUP    = 2
+    VGA_PINGROUP= 2                                         ' 0, 1, 2, 3 (VGA pin base = pingroup * 8)
 ' --
 
     WIDTH       = 160
@@ -491,7 +491,7 @@ PUB Setup
     time.MSleep(30)
     ser.Clear
     ser.str(string("Serial terminal started", ser#CR, ser#LF))
-    if display.Start (PINGROUP, WIDTH, HEIGHT, @_framebuff)
+    if display.Start (VGA_PINGROUP, WIDTH, HEIGHT, @_framebuff)
         ser.str(string("VGA Bitmap driver started", ser#CR, ser#LF))
         display.FontAddress(fnt.BaseAddr)
         display.FontSize(6, 8)
