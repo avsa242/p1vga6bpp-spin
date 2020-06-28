@@ -79,8 +79,7 @@ PUB Start(pinGroup, WIDTH, HEIGHT, drawbuffer_address): okay
 
     displayIndicatorAddress := @displayIndicator
     syncIndicatorAddress := @syncIndicator
-    _cog := cognew(@initialization, _ptr_drawbuffer)+1
-    return _cog
+    okay := _cog := cognew(@initialization, _ptr_drawbuffer)+1
 
 PUB Stop
 
