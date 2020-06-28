@@ -45,6 +45,7 @@ CON
     DISP_HEIGHT = 120
     BYTESPERPX  = 1
     BYTESPERLN  = DISP_WIDTH * BYTESPERPX
+    PIX_CLK     = 25_175_000
 
 VAR
 
@@ -72,7 +73,7 @@ PUB Start(pinGroup, WIDTH, HEIGHT, drawbuffer_address): okay
     directionState := ($FF << (8 * pinGroup))
     videoState := ($30_00_00_FF | (pinGroup << 9))
 
-    pinGroup := constant((25_175_000 + 1_600) / 4)
+    pinGroup := constant((PIX_CLK + 1_600) / 4)
     frequencyState := 1
     repeat 32
         pinGroup <<= 1
