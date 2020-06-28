@@ -4,8 +4,8 @@
     Description: Demo of the VGA Bitmap driver
     Author: Jesse Burt
     Copyright (c) 2020
-    Started: Mar 11, 2019
-    Updated: Mar 29, 2020
+    Started: Apr 24, 2020
+    Updated: Jun 28, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -15,12 +15,14 @@ CON
     _clkmode    = cfg#_clkmode
     _xinfreq    = cfg#_xinfreq
 
+' -- User-modifiable constants
     LED         = cfg#LED1
     SER_RX      = 31
     SER_TX      = 30
     SER_BAUD    = 115_200
 
     PINGROUP    = 2
+' --
 
     WIDTH       = 160
     HEIGHT      = 120
@@ -32,11 +34,11 @@ CON
 
 OBJ
 
-    cfg         : "core.con.boardcfg.activityboard"
+    cfg         : "core.con.boardcfg.quickstart-hib"
     ser         : "com.serial.terminal.ansi"
     time        : "time"
     io          : "io"
-    display        : "display.vga.bitmap.160x120"
+    display     : "display.vga.bitmap.160x120"
     int         : "string.integer"
     fnt         : "font.5x8"
 
@@ -44,9 +46,9 @@ VAR
 
     long _stack_timer[50]
     long _timer_set
-    long _rndSeed
+    long _rnd_seed
+    byte _timer_cog
     byte _framebuff[BUFFSZ]
-    byte _timer_cog, _ser_cog, _display_cog
 
 PUB Main | time_ms, r
 
@@ -71,6 +73,12 @@ PUB Main | time_ms, r
     display.ClearAll
 
     Demo_Bitmap (time_ms, $8000)
+    display.ClearAll
+
+    Demo_Box(time_ms)
+    display.ClearAll
+
+    Demo_BoxFilled(time_ms)
     display.ClearAll
 
     Demo_LineSweepX(time_ms)
@@ -116,17 +124,16 @@ PUB Demo_BouncingBall(testtime, radius) | iteration, bx, by, dx, dy
     iteration := 0
 
     repeat while _timer_set
+        display.Clear
         bx += dx
         by += dy
         if (by =< radius OR by => HEIGHT - radius)          'If we reach the top or bottom of the screen,
             dy *= -1                                        ' change direction
         if (bx =< radius OR bx => WIDTH - radius)           'Ditto with the left or right sides
             dx *= -1
-
-        display.Circle (bx, by, radius, $FFFF)
-        display.Update
+        display.WaitVSync
+        display.Circle (bx, by, radius, display#MAX_COLOR)
         iteration++
-        display.Clear
 
     Report(testtime, iteration)
     return iteration
@@ -139,7 +146,35 @@ PUB Demo_Bitmap(testtime, bitmap_addr) | iteration
 
     repeat while _timer_set
         display.Bitmap (bitmap_addr, BUFFSZ, 0)
-        display.Update
+
+        iteration++
+
+    Report(testtime, iteration)
+    return iteration
+
+PUB Demo_Box (testtime) | iteration, c
+' Draws random boxes
+    ser.str(string("Demo_Box - "))
+    _timer_set := testtime
+    iteration := 0
+
+    repeat while _timer_set
+        c := rnd(display#MAX_COLOR)
+        display.Box (rnd(XMAX), rnd(YMAX), rnd(XMAX), rnd(YMAX), c, FALSE)
+        iteration++
+
+    Report(testtime, iteration)
+    return iteration
+
+PUB Demo_BoxFilled (testtime) | iteration, c
+' Draws random filled boxes
+    ser.str(string("Demo_BoxFilled - "))
+    _timer_set := testtime
+    iteration := 0
+
+    repeat while _timer_set
+        c := rnd(display#MAX_COLOR)
+        display.Box (rnd(XMAX), rnd(YMAX), rnd(XMAX), rnd(YMAX), c, TRUE)
         iteration++
 
     Report(testtime, iteration)
@@ -155,31 +190,16 @@ PUB Demo_Circle(testtime) | iteration, x, y, r, c
         x := rnd(XMAX)
         y := rnd(YMAX)
         r := rnd(YMAX/2)
-        c := (?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26)
+        c := rnd(display#MAX_COLOR)
         display.Circle (x, y, r, c)
-        display.Update
         iteration++
 
     Report(testtime, iteration)
     return iteration
-{
-PUB Demo_Contrast(reps, delay_ms) | contrast_level
-' Fades out and in display contrast
-    ser.str(string("Demo_Contrast - N/A"))
 
-    repeat reps
-        repeat contrast_level from 255 to 1
-            display.Contrast (contrast_level)
-            time.MSleep (delay_ms)
-        repeat contrast_level from 0 to 254
-            display.Contrast (contrast_level)
-            time.MSleep (delay_ms)
-
-    ser.newline
-}
 PUB Demo_Greet
 ' Display the banner/greeting on the OLED
-    display.FGColor($FFFF)
+    display.FGColor(display#MAX_COLOR)
     display.BGColor(0)
     display.Position (0, 0)
     display.Str (string("VGA Bitmap on the"))
@@ -202,7 +222,6 @@ PUB Demo_Greet
 
     display.Position (4, 4)
     display.Str (int.DecPadded (HEIGHT, 2))
-    display.Update
 
 PUB Demo_Line (testtime) | iteration, c
 ' Draws random lines with color -1 (invert)
@@ -211,9 +230,8 @@ PUB Demo_Line (testtime) | iteration, c
     iteration := 0
 
     repeat while _timer_set
-        c := (?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26)
+        c := rnd(display#MAX_COLOR)
         display.Line (rnd(XMAX), rnd(YMAX), rnd(XMAX), rnd(YMAX), c)
-        display.Update
         iteration++
 
     Report(testtime, iteration)
@@ -233,7 +251,6 @@ PUB Demo_LineSweepX (testtime) | iteration, x
         if x > XMAX
             x := 0
         display.Line (x, 0, XMAX-x, YMAX, x)
-        display.Update
         iteration++
 
     Report(testtime, iteration)
@@ -253,7 +270,6 @@ PUB Demo_LineSweepY (testtime) | iteration, y
         if y > YMAX
             y := 0
         display.Line (XMAX, y, 0, YMAX-y, y)
-        display.Update
         iteration++
 
     Report(testtime, iteration)
@@ -271,8 +287,8 @@ PUB Demo_MEMScroller(testtime, start_addr, end_addr) | iteration, pos, st, en
         pos += BPL
         if pos >end_addr
             pos := start_addr
+        display.WaitVSync
         display.Bitmap (pos, BUFFSZ, 0)
-        display.Update
         iteration++
 
     Report(testtime, iteration)
@@ -285,9 +301,7 @@ PUB Demo_Plot(testtime) | iteration, x, y, c
     iteration := 0
 
     repeat while _timer_set
-        c := (?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26)
-        display.Plot (rnd(XMAX), rnd(YMAX), c)
-        display.Update
+        display.Plot (rnd(XMAX), rnd(YMAX), rnd(display#MAX_COLOR))
         iteration++
 
     Report(testtime, iteration)
@@ -297,75 +311,62 @@ PUB Demo_Sinewave(testtime) | iteration, x, y, modifier, offset, div
 ' Draws a sine wave the length of the screen, influenced by the system counter
     ser.str(string("Demo_Sinewave - "))
 
-    div := 3072
+    div := 2048
     offset := YMAX/2                                    ' Offset for Y axis
 
     _timer_set := testtime
     iteration := 0
 
     repeat while _timer_set
+        display.WaitVSync
         repeat x from 0 to XMAX
             modifier := (||cnt / 1_000_000)           ' Use system counter as modifier
             y := offset + sin(x * modifier) / div
-            display.Plot(x, y, $FFFF)
-
-        display.Update
-        iteration++
+            display.Plot(x, y, display#MAX_COLOR)
+            iteration++
         display.Clear
 
     Report(testtime, iteration)
     return iteration
 
-PUB Demo_SeqText(testtime) | iteration, col, row, maxcol, maxrow, ch, st
+PUB Demo_SeqText(testtime) | iteration, ch, fg, bg
 ' Sequentially draws the whole font table to the screen, then random characters
-'    display.FGColor(1)
-'    display.BGColor(0)
-    maxcol := (WIDTH/display.FontWidth)-1
-    maxrow := (HEIGHT/display.FontHeight)-1
-    ch := $00
+    ch := $20
 
     ser.str(string("Demo_SeqText - "))
     _timer_set := testtime
     iteration := 0
+    display.Position(0, 0)
 
     repeat while _timer_set
-        repeat row from 0 to maxrow
-            repeat col from 0 to maxcol
-                ch++
-                if ch > $7F
-                    ch := $00
-                display.FGColor((?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26))
-                display.BGColor((?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26))
-                display.Position (col, row)
-                display.Char (ch)
-                iteration++
+        ch++
+        if ch > $7F
+            ch := $20
+        fg++
+        if fg > display#MAX_COLOR
+            fg := 0
+        bg--
+        if bg < 0
+            bg := display#MAX_COLOR
+        display.FGColor(fg)
+        display.BGColor(bg)
+        display.Char (ch)
+        iteration++
 
     Report(testtime, iteration)
     return iteration
 
-PUB Demo_RndText(testtime) | iteration, col, row, maxcol, maxrow, ch, st
-
-    display.FGColor(1)
-    display.BGColor(0)
-    maxcol := (WIDTH/display.FontWidth)-1
-    maxrow := (HEIGHT/display.FontHeight)-1
-    ch := $00
+PUB Demo_RndText(testtime) | iteration
 
     ser.str(string("Demo_RndText - "))
     _timer_set := testtime
     iteration := 0
-
+    display.Position(0, 0)
     repeat while _timer_set
-        repeat row from 0 to maxrow
-            repeat col from 0 to maxcol
-                ch++
-                if ch > $7F
-                    ch := $00
-                display.FGColor((?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26))
-                display.BGColor((?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26))
-                display.Position (col, row)
-                display.Char (rnd(127))
-                iteration++
+        display.FGColor(rnd(display#MAX_COLOR))
+        display.BGColor(rnd(display#MAX_COLOR))
+        display.Char ($20 #> rnd($7F))
+        iteration++
 
     Report(testtime, iteration)
     return iteration
@@ -380,14 +381,14 @@ PUB Demo_TriWave(testtime) | iteration, x, y, ydir
     iteration := 0
 
     repeat while _timer_set
+        display.WaitVSync
         repeat x from 0 to XMAX
             if y == YMAX
                 ydir := -1
             if y == 0
                 ydir := 1
             y := y + ydir
-            display.Plot (x, y, $FFFF)
-        display.Update
+            display.Plot (x, y, display#MAX_COLOR)
         iteration++
         display.Clear
 
@@ -396,7 +397,6 @@ PUB Demo_TriWave(testtime) | iteration, x, y, ydir
 
 PUB Demo_Wander(testtime) | iteration, x, y, d, c
 ' Draws randomly wandering pixels
-    _rndSeed := cnt
     x := XMAX/2
     y := YMAX/2
 
@@ -406,38 +406,32 @@ PUB Demo_Wander(testtime) | iteration, x, y, d, c
 
     repeat while _timer_set
         case d := rnd(4)
-            1:
+            0:
                 x += 2
                 if x > XMAX
                     x := 0
-            2:
+            1:
                 x -= 2
                 if x < 0
                     x := XMAX
-            3:
+            2:
                 y += 2
                 if y > YMAX
                     y := 0
-            4:
+            3:
                 y -= 2
                 if y < 0
                     y := YMAX
-        c := (?_rndseed >> 26) << 11 | (?_rndseed >> 25) << 5 | (?_rndseed >> 26)
+        c := rnd(display#MAX_COLOR)
         display.Plot (x, y, c)
-        display.Update
         iteration++
 
     Report(testtime, iteration)
     return iteration
 
-PUB RND(max_val) | i
+PUB RND(max_val): r
 ' Returns a random number between 0 and max_val
-    i := ?_rndseed
-    i >>= 16
-    i *= (max_val + 1)
-    i >>= 16
-
-    return i
+    r := ||(?_rnd_seed // max_val)
 
 PUB Sin(angle)
 ' Sin angle is 13-bit; Returns a 16-bit signed value
@@ -457,8 +451,8 @@ PRI Report(testtime, iterations)
     ser.str(string(", Iterations/sec: "))
     ser.dec(iterations / (testtime/1000))
 
-    ser.str(string(", Iterations/ms: "))
-    Decimal( (iterations * 1_000) / testtime, 1_000)
+    ser.str(string(", ms/iteration: "))
+    Decimal( (testtime * 1_000) / iterations, 1_000)
     ser.newline
 
 PRI Decimal(scaled, divisor) | whole[4], part[4], places, tmp
@@ -494,18 +488,18 @@ PRI cog_Timer | time_left
 
 PUB Setup
 
-    repeat until _ser_cog := ser.StartRXTX (SER_RX, SER_TX, 0, SER_BAUD)
+    repeat until ser.StartRXTX (SER_RX, SER_TX, 0, SER_BAUD)
     time.MSleep(30)
     ser.Clear
     ser.str(string("Serial terminal started", ser#CR, ser#LF))
-    if _display_cog := display.Start (PINGROUP, WIDTH, HEIGHT, @_framebuff)
+    if display.Start (PINGROUP, WIDTH, HEIGHT, @_framebuff)
         ser.str(string("VGA Bitmap driver started", ser#CR, ser#LF))
         display.FontAddress(fnt.BaseAddr)
         display.FontSize(6, 8)
     else
         ser.str(string("VGA Bitmap driver failed to start - halting", ser#CR, ser#LF))
         Stop
-
+    _rnd_seed := cnt
     _timer_cog := cognew(cog_Timer, @_stack_timer)
 
 PUB Stop

@@ -1,23 +1,38 @@
+{
+    --------------------------------------------
+    Filename: display.vga.bitmap.160x120.spin
+    Author: Kwabena W. Agyeman
+    Modified By: Jesse Burt
+    Description: Bitmap VGA display engine (6bpp color, 160x120)
+    Started: Nov 17, 2009
+    Updated: Jun 6, 2020
+    See end of file for terms of use.
+    --------------------------------------------
+
+    NOTE: This is a modified version of VGA64_PIXEngine.spin,
+        originally by Kwabena W. Agyeman.
+        The original header is preserved below.
+}
 {{
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// VGA64 6 Bits Per Pixel Engine
-//
-// Author: Kwabena W. Agyeman
-// Updated: 11/17/2010
-// Designed For: P8X32A
-// Version: 1.0
-//
-// Copyright (c) 2010 Kwabena W. Agyeman
-// See end of file for terms of use.
-//
-// Update History:
-//
-// v1.0 - Original release - 11/17/2009.
-//
-// For each included copy of this object only one spin interpreter should access it at a time.
-//
-// Nyamekye,
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+ VGA64 6 Bits Per Pixel Engine
+
+ Author: Kwabena W. Agyeman
+ Updated: 11172010
+ Designed For: P8X32A
+ Version: 1.0
+
+ Copyright (c) 2010 Kwabena W. Agyeman
+ See end of file for terms of use.
+
+ Update History:
+
+ v1.0 - Original release - 11172009.
+
+ For each included copy of this object only one spin interpreter should access it at a time.
+
+ Nyamekye,
+
 }}
 
 #define VGABITMAP6BPP
@@ -25,14 +40,11 @@
 
 CON
 
-  #$FC, Light_Grey, #$A8, Grey, #$54, Dark_Grey
-  #$C0, Light_Red, #$80, Red, #$40, Dark_Red
-  #$30, Light_Green, #$20, Green, #$10, Dark_Green
-  #$0C, Light_Blue, #$08, Blue, #$04, Dark_Blue
-  #$F0, Light_Orange, #$A0, Orange, #$50, Dark_Orange
-  #$CC, Light_Purple, #$88, Purple, #$44, Dark_Purple
-  #$3C, Light_Teal, #$28, Teal, #$14, Dark_Teal
-  #$FF, White, #$00, Black
+    MAX_COLOR   = 63
+    DISP_WIDTH  = 160
+    DISP_HEIGHT = 120
+    BYTESPERPX  = 1
+    BYTESPERLN  = DISP_WIDTH * BYTESPERPX
 
 VAR
 
@@ -40,44 +52,35 @@ VAR
     word _disp_width, _disp_height, _disp_xmax, _disp_ymax, _buff_sz
     byte _cog
 
-PUB Start(pinGroup, WIDTH, HEIGHT, drawbuffer_address) '' 7 Stack Longs
+PUB Start(pinGroup, WIDTH, HEIGHT, drawbuffer_address): okay
+' PinGroup - Pin group to use to drive the video circuit. Between 0 and 3.
+    Stop
 
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-'' // Starts up the PIX driver running on a cog.
-'' //
-'' // Returns true on success and false on failure.
-'' //
-'' // PinGroup - Pin group to use to drive the video circuit. Between 0 and 3.
-'' ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    _disp_width := DISP_WIDTH                               ' Use these constants DISP_WIDTH and HEIGHT
+    _disp_height := DISP_HEIGHT                             ' WIDTH and HEIGHT are just dummy params
+    _disp_xmax := _disp_width - 1                           '   for API compatibility with other drivers
+    _disp_ymax := _disp_height - 1
+    _buff_sz := _disp_width * _disp_height
 
-    Stop'1
-    if(chipver == 1)
+    Address(drawbuffer_address)
 
-        _disp_width := WIDTH'2
-        _disp_height := HEIGHT
-        _disp_xmax := _disp_width - 1
-        _disp_ymax := _disp_height - 1
-        _buff_sz := _disp_width * _disp_height
+    pinGroup := ((pinGroup <# 3) #> 0)
+    directionState := ($FF << (8 * pinGroup))
+    videoState := ($30_00_00_FF | (pinGroup << 9))
 
-        Address(drawbuffer_address)
+    pinGroup := constant((25_175_000 + 1_600) / 4)
+    frequencyState := 1
+    repeat 32
+        pinGroup <<= 1
+        frequencyState <-= 1
+        if(pinGroup => clkfreq)
+            pinGroup -= clkfreq
+            frequencyState += 1
 
-        pinGroup := ((pinGroup <# 3) #> 0)
-        directionState := ($FF << (8 * pinGroup))
-        videoState := ($30_00_00_FF | (pinGroup << 9))
-
-        pinGroup := constant((25_175_000 + 1_600) / 4)
-        frequencyState := 1
-        repeat 32
-            pinGroup <<= 1'3
-            frequencyState <-= 1
-            if(pinGroup => clkfreq)
-                pinGroup -= clkfreq'4
-                frequencyState += 1
-
-        displayIndicatorAddress := @displayIndicator'2
-        syncIndicatorAddress := @syncIndicator
-        _cog := cognew(@initialization, _ptr_drawbuffer)+1
-        return _cog
+    displayIndicatorAddress := @displayIndicator
+    syncIndicatorAddress := @syncIndicator
+    _cog := cognew(@initialization, _ptr_drawbuffer)+1
+    return _cog
 
 PUB Stop
 
@@ -93,12 +96,11 @@ PUB Address(addr)
 
 PUB ClearAccel
 ' Clear screen to black
-    longfill(_ptr_drawbuffer, 0, constant((160 * 120) / 4))
+    longfill(_ptr_drawbuffer, 0, constant((DISP_WIDTH * DISP_HEIGHT) / 4))
 
-PUB DisplayState(state) '' 4 Stack Longs
+PUB DisplayState(state)
 ' Enable video output
 '   Valid values: TRUE (-1), FALSE (0)
-
     displayIndicator := state
 
 PUB DisplayRate(rate)
@@ -106,12 +108,10 @@ PUB DisplayRate(rate)
 '   Rate - A display rate to return at. 0=0.234375Hz, 1=0.46875Hz, 2=0.9375Hz, 3=1.875Hz, 4=3.75Hz, 5=7.5Hz, 6=15Hz, 7=30Hz.
     result or= (($80 >> ((rate <# 7) #> 0)) & syncIndicator)
 
-PUB WaitVSYNC(frames)
+PUB WaitVSync
 ' Waits for the display vertical refresh.
-'   Frames - Number of vertical refresh frames to wait for.
-    repeat (frames #> 0)
-        result := syncIndicator
-        repeat until(result <> syncIndicator)
+    result := syncIndicator
+    repeat until(result <> syncIndicator)
 
 PUB Update
 ' dummy method
@@ -120,16 +120,13 @@ DAT
 
                         org     0
 
-' //////////////////////Initialization/////////////////////////////////////////////////////////////////////////////////////////
+' Initialization
 
 initialization          mov     vcfg,           videoState                 ' Setup video hardware.
                         mov     frqa,           frequencyState             '
                         movi    ctra,           #%0_00001_101              '
 
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 '                       Active Video
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 loop                    mov     displayCounter, par                        ' Set/Reset tiles fill counter.
                         mov     tilesCounter,   #120                       '
 
@@ -138,8 +135,7 @@ tilesDisplay            mov     tileCounter,    #4                         ' Set
 tileDisplay             mov     vscl,           visibleScale               ' Set/Reset the video scale.
                         mov     counter,        #40                        '
 
-' //////////////////////Visible Video//////////////////////////////////////////////////////////////////////////////////////////
-
+' Visible Video
 videoLoop               rdlong  buffer,         displayCounter             ' Download new pixels.
                         add     displayCounter, #4                         '
 
@@ -148,28 +144,23 @@ videoLoop               rdlong  buffer,         displayCounter             ' Dow
 
                         djnz    counter,        #videoLoop                 ' Repeat.
 
-' //////////////////////Invisible Video////////////////////////////////////////////////////////////////////////////////////////
-
+' Invisible Video
                         mov     vscl,           invisibleScale             ' Set/Reset the video scale.
 
                         waitvid HSyncColors,    syncPixels                 ' Horizontal Sync.
 
-' //////////////////////Repeat/////////////////////////////////////////////////////////////////////////////////////////////////
-
+' Repeat
                         sub     displayCounter, #160                       ' Repeat.
                         djnz    tileCounter,    #tileDisplay               '
 
                         add     displayCounter, #160                       ' Repeat.
                         djnz    tilesCounter,   #tilesDisplay              '
 
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 '                       Inactive Video
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
                         add     refreshCounter, #1                         ' Update sync indicator.
                         wrbyte  refreshCounter, syncIndicatorAddress       '
 
-' //////////////////////Front Porch////////////////////////////////////////////////////////////////////////////////////////////
+' Front Porch
 
                         mov     counter,        #11                        ' Set loop counter.
 
@@ -181,8 +172,7 @@ frontPorch              mov     vscl,           blankPixels                ' Inv
 
                         djnz    counter,        #frontPorch                ' Repeat # times.
 
-' //////////////////////Vertical Sync//////////////////////////////////////////////////////////////////////////////////////////
-
+' Vertical Sync
                         mov     counter,        #(2 + 2)                   ' Set loop counter.
 
 verticalSync            mov     vscl,           blankPixels                ' Invisible lines.
@@ -193,8 +183,7 @@ verticalSync            mov     vscl,           blankPixels                ' Inv
 
                         djnz    counter,        #verticalSync              ' Repeat # times.
 
-' //////////////////////Back Porch/////////////////////////////////////////////////////////////////////////////////////////////
-
+' Back Porch
                         mov     counter,        #31                        ' Set loop counter.
 
 backPorch               mov     vscl,           blankPixels                ' Invisible lines.
@@ -205,19 +194,14 @@ backPorch               mov     vscl,           blankPixels                ' Inv
 
                         djnz    counter,        #backPorch                 ' Repeat # times.
 
-' //////////////////////Update Display Settings////////////////////////////////////////////////////////////////////////////////
-
+' Update Display Settings
                         rdbyte  buffer,         displayIndicatorAddress wz ' Update display settings.
                         muxnz   dira,           directionState             '
 
-' //////////////////////Loop///////////////////////////////////////////////////////////////////////////////////////////////////
-
+' Loop
                         jmp     #loop                                      ' Loop.
 
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 '                       Data
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 invisibleScale          long    (16 << 12) + 160                           ' Scaling for inactive video.
 visibleScale            long    (4 << 12) + 16                             ' Scaling for active video.
 blankPixels             long    640                                        ' Blank scanline pixel length.
@@ -226,19 +210,16 @@ HSyncColors             long    $01_03_01_03                               ' Hor
 VSyncColors             long    $00_02_00_02                               ' Vertical sync color mask.
 HVSyncColors            long    $03_03_03_03                               ' Horizontal and vertical sync colors.
 
-' //////////////////////Configuration Settings/////////////////////////////////////////////////////////////////////////////////
-
+' Configuration Settings
 directionState          long    0
 videoState              long    0
 frequencyState          long    0
 
-' //////////////////////Addresses//////////////////////////////////////////////////////////////////////////////////////////////
-
+' Addresses
 displayIndicatorAddress long    0
 syncIndicatorAddress    long    0
 
-' //////////////////////Run Time Variables/////////////////////////////////////////////////////////////////////////////////////
-
+' Run Time Variables
 counter                 res     1
 buffer                  res     1
 
@@ -248,16 +229,12 @@ tilesCounter            res     1
 refreshCounter          res     1
 displayCounter          res     1
 
-' /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
                         fit     496
-
-DAT
 
 
 displayIndicator        byte    1                                          ' Video output control.
 syncIndicator           byte    0                                          ' Video update control.
-cogNumber               byte    0                                          ' Cog ID.
 
 {
     --------------------------------------------------------------------------------------------------------
