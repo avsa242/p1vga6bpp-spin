@@ -34,7 +34,7 @@
  Nyamekye,
 
 }}
-
+#define _PASM_
 #define VGABITMAP6BPP
 #include "lib.gfx.bitmap.spin"
 
@@ -51,6 +51,10 @@ VAR
     long _ptr_drawbuffer
     word _disp_width, _disp_height, _disp_xmax, _disp_ymax, _buff_sz
     byte _cog
+
+OBJ
+
+    ctrs    : "core.con.counters"
 
 PUB Start(pinGroup, WIDTH, HEIGHT, drawbuffer_address): okay
 ' PinGroup - Pin group to use to drive the video circuit. Between 0 and 3.
@@ -123,7 +127,7 @@ DAT
 
 initialization          mov     vcfg,           videoState                 ' Setup video hardware.
                         mov     frqa,           frequencyState             '
-                        movi    ctra,           #%0_00001_101              '
+                        movi    ctra,           #(ctrs#VCO_DIV_4 | ctrs#PLL_INTERNAL)
 
 '                       Active Video
 loop                    mov     displayCounter, par                        ' Set/Reset tiles fill counter.
