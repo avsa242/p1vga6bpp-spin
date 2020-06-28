@@ -202,7 +202,7 @@ PUB Demo_Greet
     display.FGColor(display#MAX_COLOR)
     display.BGColor(0)
     display.Position (0, 0)
-    display.Str (string("VGA Bitmap on the"))
+    display.Str (string("VGA Bitmap 6bpp on the"))
 
     display.Position (0, 1)
     display.Str (string("Parallax"))
