@@ -5,7 +5,7 @@
     Modified By: Jesse Burt
     Description: Bitmap VGA display engine (6bpp color, 160x120)
     Started: Nov 17, 2009
-    Updated: Oct 18, 2021
+    Updated: Jan 25, 2022
     See end of file for terms of use.
     --------------------------------------------
 
@@ -35,7 +35,6 @@
 
 }}
 #define _PASM_
-#define VGABITMAP6BPP
 #define MEMMV_NATIVE bytemove
 #include "lib.gfx.bitmap.spin"
 
@@ -99,9 +98,9 @@ PUB Address(addr)
 '       display.Address(@_framebuffer)
     _ptr_drawbuffer := addr
 
-PUB ClearAccel
-' Clear screen to black
-    longfill(_ptr_drawbuffer, 0, constant((DISP_WIDTH * DISP_HEIGHT) / 4))
+PUB Clear{}
+' Clear the display
+    longfill(_ptr_drawbuffer, _bgcolor, constant((DISP_WIDTH * DISP_HEIGHT) / 4))
 
 PUB DisplayState(state)
 ' Enable video output
@@ -113,6 +112,26 @@ PUB DisplayRate(rate)
 '   Rate - A display rate to return at. 0=0.234375Hz, 1=0.46875Hz, 2=0.9375Hz, 3=1.875Hz, 4=3.75Hz, 5=7.5Hz, 6=15Hz, 7=30Hz.
     result or= (($80 >> ((rate <# 7) #> 0)) & syncIndicator)
 
+#ifdef GFX_DIRECT
+PUB Plot(x, y, color)
+' Draw a pixel at (x, y) in color (direct to display)
+
+#else
+
+PUB Plot(x, y, color)
+' Draw a pixel at (x, y) in color (buffered)
+    byte[_ptr_drawbuffer][x + (y * _disp_width)] := (color << 2) | $3
+#endif
+
+#ifndef GFX_DIRECT
+PUB Point(x, y): pix_clr
+' Get color of pixel at x, y
+    x := 0 #> x <# _disp_xmax
+    y := 0 #> y <# _disp_ymax
+
+    return byte[_ptr_drawbuffer][x + (y * _disp_width)] >> 2
+#endif
+
 PUB WaitVSync
 ' Waits for the display vertical refresh.
     result := syncIndicator
@@ -120,6 +139,15 @@ PUB WaitVSync
 
 PUB Update
 ' dummy method
+
+#ifndef GFX_DIRECT
+PRI memFill(xs, ys, val, count)
+' Fill region of display buffer memory
+'   xs, ys: Start of region
+'   val: Color
+'   count: Number of consecutive memory locations to write
+    bytefill(_ptr_drawbuffer + (xs + (ys * _bytesperln)), (val << 2) | $3, count)
+#endif
 
 DAT
 
