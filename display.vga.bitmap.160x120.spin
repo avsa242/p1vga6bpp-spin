@@ -5,7 +5,7 @@
     Modified By: Jesse Burt
     Description: Bitmap VGA display engine (6bpp color, 160x120)
     Started: Nov 17, 2009
-    Updated: Jan 25, 2022
+    Updated: Jan 30, 2022
     See end of file for terms of use.
     --------------------------------------------
 
@@ -48,9 +48,6 @@ CON
 
 VAR
 
-    long _ptr_drawbuffer
-    word _disp_width, _disp_height, _disp_xmax, _disp_ymax, _buff_sz
-    word _bytesperln
     byte _cog
 
 OBJ
