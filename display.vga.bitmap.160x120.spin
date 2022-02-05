@@ -5,7 +5,7 @@
     Modified By: Jesse Burt
     Description: Bitmap VGA display engine (6bpp color, 160x120)
     Started: Nov 17, 2009
-    Updated: Jan 30, 2022
+    Updated: Feb 5, 2022
     See end of file for terms of use.
     --------------------------------------------
 
@@ -109,14 +109,15 @@ PUB DisplayRate(rate)
 '   Rate - A display rate to return at. 0=0.234375Hz, 1=0.46875Hz, 2=0.9375Hz, 3=1.875Hz, 4=3.75Hz, 5=7.5Hz, 6=15Hz, 7=30Hz.
     result or= (($80 >> ((rate <# 7) #> 0)) & syncIndicator)
 
+PUB Plot(x, y, color)
+' Plot pixel at (x, y) in color
+    if (x < 0 or x > _disp_xmax) or (y < 0 or y > _disp_ymax)
+        return                                  ' coords out of bounds, ignore
 #ifdef GFX_DIRECT
-PUB Plot(x, y, color)
-' Draw a pixel at (x, y) in color (direct to display)
-
+' direct to display
+'   (not implemented)
 #else
-
-PUB Plot(x, y, color)
-' Draw a pixel at (x, y) in color (buffered)
+' buffered display
     byte[_ptr_drawbuffer][x + (y * _disp_width)] := (color << 2) | $3
 #endif
 
