@@ -5,7 +5,7 @@
     Modified By: Jesse Burt
     Description: Bitmap VGA display engine (6bpp color, 160x120)
     Started: Nov 17, 2009
-    Updated: Oct 6, 2022
+    Updated: Oct 16, 2022
     See end of file for terms of use.
     --------------------------------------------
 
@@ -34,7 +34,6 @@
  Nyamekye,
 
 }}
-#define _PASM_
 #define MEMMV_NATIVE bytemove
 #include "lib.gfx.bitmap.spin"
 
@@ -49,10 +48,6 @@ CON
 VAR
 
     byte _cog
-
-OBJ
-
-    ctrs    : "core.con.counters"
 
 PUB startx(PINGRP, WIDTH, HEIGHT, ptr_dispbuff): okay
 ' Start VGA engine
@@ -149,6 +144,9 @@ PRI memfill(xs, ys, val, count)
     bytefill(_ptr_drawbuffer + (xs + (ys * _bytesperln)), (val << 2) | $3, count)
 #endif
 
+#define _PASM_
+#include "core.con.counters.spin"
+
 DAT
 
                         org     0
@@ -157,7 +155,7 @@ DAT
 
 initialization          mov     vcfg,           videoState                 ' Setup video hardware.
                         mov     frqa,           frequencyState             '
-                        movi    ctra,           #(ctrs#VCO_DIV_4 | ctrs#PLL_INTERNAL)
+                        movi    ctra,           #(VCO_DIV_4 | PLL_INTERNAL)
 
 '                       Active Video
 loop                    mov     displayCounter, par                        ' Set/Reset tiles fill counter.
