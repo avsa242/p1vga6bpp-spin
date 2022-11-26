@@ -16,7 +16,7 @@ This is a P8X32A/Propeller VGA 6bpp display engine
 P1/SPIN1:
 * spin-standard-library
 * 1 extra core/cog for the PASM display engine
-* lib.gfx.bitmap.spin (provided by spin-standard-library)
+* graphics.common.spinh (provided by spin-standard-library)
 * 19.2k RAM for the display buffer (double-buffering not possible)
 * `-D_PASM_` must be defined on the build commandline
 
