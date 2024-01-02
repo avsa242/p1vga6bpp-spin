@@ -18,20 +18,18 @@ P1/SPIN1:
 * 1 extra core/cog for the PASM display engine
 * graphics.common.spinh (provided by spin-standard-library)
 * 19.2k RAM for the display buffer (double-buffering not possible)
-* `-D_PASM_` must be defined on the build commandline
 
 ## Compiler Compatibility
 
 | Processor | Language | Compiler               | Backend     | Status                |
 |-----------|----------|------------------------|-------------|-----------------------|
-| P1        | SPIN1    | FlexSpin (6.5.0)       | Bytecode    | OK                    |
-| P1        | SPIN1    | FlexSpin (6.5.0)       | Native code | OK                    |
+| P1        | SPIN1    | FlexSpin (6.8.0)       | Bytecode    | OK                    |
+| P1        | SPIN1    | FlexSpin (6.8.0)       | Native code | OK                    |
 
 (other versions or toolchains not listed are not supported, and _may or may not_ work)
 
 
 ## Limitations
 
-* Very early in development - may malfunction, or outright fail to build
 * No ability to adjust video timings from outside the engine
 
