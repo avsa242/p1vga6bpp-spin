@@ -1,15 +1,15 @@
 {
-    --------------------------------------------
-    Filename: VGA6bpp-MinimalDemo.spin
-    Description: Demo of the 6bpp VGA bitmap driver
+----------------------------------------------------------------------------------------------------
+    Filename:       VGA6bpp-MinimalDemo.spin
+    Description:    Demo of the 6bpp VGA bitmap driver
         * minimal code example
-    Author: Jesse Burt
-    Copyright (c) 2024
-    Started: Jan 2, 2024
-    Updated: Jan 2, 2024
-    See end of file for terms of use.
-    --------------------------------------------
+    Author:         Jesse Burt
+    Started:        Jan 2, 2024
+    Updated:        Sep 3, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
+
 CON
 
     _clkmode    = xtal1+pll16x
@@ -30,7 +30,7 @@ PUB main()
     { start the driver }
     disp.start()
 
-    { tell the driver the size of the font }
+    { tell the driver where to find the font definition }
     disp.set_font(fnt.ptr(), fnt.setup())
     disp.clear()
 
