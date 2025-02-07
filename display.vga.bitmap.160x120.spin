@@ -4,8 +4,8 @@
     Description:    Bitmap VGA display engine (6bpp color, 160x120)
     Author:         Jesse Burt
     Started:        Nov 17, 2009
-    Updated:        Sep 3, 2024
-    Copyright (c) 2024 - See end of file for terms of use.
+    Updated:        Feb 7, 2025
+    Copyright (c) 2025 - See end of file for terms of use.
 ----------------------------------------------------------------------------------------------------
 
     NOTE: This is a modified version of VGA64_PIXEngine.spin,
@@ -40,22 +40,28 @@ CON
 
     { default I/O configuration - this can be overridden in the parent object }
     PIN_GRP     = 0                             ' 0..3 for each group of 8 consecutive pins
-
-    { driver limits }
-    MAX_COLOR   = 63
     WIDTH       = 160
     HEIGHT      = 120
+
+
+    { driver limits }
+    ' actually 6bpp, but each pixel needs a byte of RAM, so count it as 8bpp
+    BPP         = 8                             ' bits per pixel/color depth of the display
+    BYTESPERPX  = 1 #> (BPP/8)                  ' limit to minimum of 1
+    BPPDIV      = BYTESPERPX #> (8 / BPP)       ' limit to range BYTESPERPX .. (8/BPP)
+    BUFF_SZ     = (WIDTH * HEIGHT) / BPPDIV
+    MAX_COLOR   = 63
     XMAX        = WIDTH-1
     YMAX        = HEIGHT-1
     CENTERX     = WIDTH/2
     CENTERY     = HEIGHT/2
-    BYTESPERPX  = 1
+
     PIX_CLK     = 25_175_000
 
 
 VAR
 
-    byte _framebuffer[WIDTH * HEIGHT]
+    byte _framebuffer[BUFF_SZ]
     byte _cog
 
 
